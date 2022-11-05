@@ -19,14 +19,15 @@ var configureCmd = &cobra.Command{
 	Run:   configureCmdRun,
 }
 
+var tokenPrompt = promptui.Prompt{
+	Label: "Access Token",
+}
+
 func init() {
 	rootCmd.AddCommand(configureCmd)
 }
 
 func configureCmdRun(cmd *cobra.Command, args []string) {
-	tokenPrompt := promptui.Prompt{
-		Label: "Access Token",
-	}
 	raw, err := tokenPrompt.Run()
 	util.IsOK(err)
 	token := strings.TrimSpace(raw)

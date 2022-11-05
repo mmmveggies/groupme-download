@@ -1,24 +1,24 @@
 package util
 
 import (
-	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 )
 
-func DownloadFile(URL, fileName string) error {
-	//Get the response bytes from the url
-	response, err := http.Get(URL)
+func DownloadFile(href, fileName string) error {
+	response, err := http.Get(href)
 	if err != nil {
 		return err
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
-		return errors.New("Received non 200 response code")
+	if response.StatusCode >= 400 {
+		bs, _ := io.ReadAll(response.Body)
+		return fmt.Errorf("got %d from: %s\n\t%s", response.StatusCode, href, string(bs))
 	}
-	//Create a empty file
+
 	file, err := os.Create(fileName)
 	if err != nil {
 		return err

@@ -44,15 +44,18 @@ func downloadCmdRun(cmd *cobra.Command, args []string) {
 	util.IsOK(err)
 
 	beginTimeStr, err := (&promptui.Prompt{
-		Label:   "What is the upper age limit? (YYYY-MM-DD)",
+		Label:   "What date should we start from? (YYYY-MM-DD)",
 		Default: time.Now().AddDate(0, -1, 0).Format("2006-01-02"),
 	}).Run()
 	util.IsOK(err)
 
 	endTimeStr, err := (&promptui.Prompt{
-		Label:   "What is the lower age limit? (YYYY-MM-DD)",
+		Label:   "What date should we end at? (YYYY-MM-DD)",
 		Default: time.Now().Format("2006-01-02"),
 	}).Run()
+	util.IsOK(err)
+
+	hierarchy, err := util.PromptHierarchy()
 	util.IsOK(err)
 
 	beginTime := util.MustBeValid(beginTimeStr)
@@ -62,7 +65,7 @@ func downloadCmdRun(cmd *cobra.Command, args []string) {
 		log.Fatal("Beginning date cannot be after ending date")
 	}
 
-	err = downloadRange(client, base, groupId, beginTime, endTime)
+	err = downloadRange(client, base, groupId, beginTime, endTime, hierarchy)
 	util.IsOK(err)
 }
 
@@ -71,6 +74,7 @@ func downloadRange(
 	base string,
 	groupId string,
 	beginDate, endDate time.Time,
+	hierarchy util.HierarchyBuilder,
 ) error {
 	ctx := context.Background()
 
@@ -88,6 +92,7 @@ func downloadRange(
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "304") {
+				log.Println("Reached the end of message history.")
 				return nil
 			}
 			return err
@@ -106,17 +111,19 @@ func downloadRange(
 				continue
 			}
 
-			userpath := path.Join(base, strings.Split(m.Name, " ")[0])
+			name := strings.Join(strings.Split(m.Name, " "), "_")
+			// userpath := path.Join(base, strings.Split(m.Name, " ")[0])
 
 			for i, a := range m.Attachments {
 				if a.Type == groupme.Image {
-					util.IsOK(os.MkdirAll(userpath, os.ModePerm))
 
 					bits := strings.Split(a.URL, ".")
 					ext := bits[len(bits)-2]
 
-					name := fmt.Sprintf("%s__%02d.%s", ts.Format("2006-01-02_15-04-05"), i, ext)
-					filepath := path.Join(userpath, name)
+					subpath := fmt.Sprintf("%s.%d.%s", hierarchy(name, ts), i, ext)
+					filepath := path.Join(base, subpath)
+
+					util.IsOK(os.MkdirAll(path.Dir(filepath), os.ModePerm))
 
 					if _, err := os.Stat(filepath); err == nil {
 						log.Printf("File already exists: %s", filepath)
